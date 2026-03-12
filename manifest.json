@@ -1,0 +1,41 @@
+{
+  "name": "Sistema de Escala de Serviço PWA",
+  "short_name": "Escala PWA",
+  "description": "Sistema completo de gestão de escalas com sincronização Google Sheets e splash screen animada",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#050d1a",
+  "theme_color": "#3b82f6",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Nova Escala",
+      "short_name": "Nova",
+      "description": "Cadastrar nova escala",
+      "url": "/index.html#nova-escala",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Calendário",
+      "short_name": "Calendário",
+      "description": "Visualizar calendário",
+      "url": "/index.html#calendario",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

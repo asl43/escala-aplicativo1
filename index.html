@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sistema de Escala de Serviço - PWA v4.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#3b82f6">
+<meta name="description" content="Sistema de Gestão de Escalas de Serviço - PWA">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+
+/* ===================================================
+   SPLASH SCREEN
+   =================================================== */
+#splashScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #050d1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+#splashScreen.fade-out {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+#splashCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.splash-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  padding: 20px;
+}
+
+.clock-wrapper {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: splashClockReveal 0.8s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes splashClockReveal {
+  from { opacity:0; transform: scale(0.3) rotate(-180deg); }
+  to   { opacity:1; transform: scale(1) rotate(0deg); }
+}
+
+.clock-face {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #1e3a6e, #0b1e3d);
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  box-shadow:
+    0 0 0 4px rgba(59,130,246,0.15),
+    0 0 40px rgba(59,130,246,0.3),
+    inset 0 0 20px rgba(0,0,0,0.5);
+}
+.clock-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 10px; height: 10px;
+  background: #3b82f6;
+  border-radius: 50%;
+  z-index: 10;
+  box-shadow: 0 0 10px #3b82f6;
+}
+.clock-hand {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform-origin: bottom center;
+  border-radius: 4px;
+}
+.hour-hand {
+  width: 4px;
+  height: 28px;
+  margin-left: -2px;
+  background: linear-gradient(to top, #3b82f6, #93c5fd);
+  box-shadow: 0 0 6px rgba(59,130,246,0.8);
+}
+.minute-hand {
+  width: 3px;
+  height: 38px;
+  margin-left: -1.5px;
+  background: linear-gradient(to top, #60a5fa, #bfdbfe);
+  box-shadow: 0 0 5px rgba(96,165,250,0.7);
+}
+.second-hand {
+  width: 2px;
+  height: 42px;
+  margin-left: -1px;
+  background: linear-gradient(to top, #ef4444, #fca5a5);
+  box-shadow: 0 0 6px rgba(239,68,68,0.9);
+}
+.clock-tick {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 2px;
+  height: 7px;
+  background: rgba(147,197,253,0.6);
+  transform-origin: 50% 0;
+  transform: translateX(-50%) rotate(calc(var(--i) * 30deg)) translateY(-46px);
+  border-radius: 2px;
+}
+
+.calendar-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ringRotate 20s linear infinite;
+}
+@keyframes ringRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.cal-day {
+  position: absolute;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(148,163,184,0.5);
+  animation: ringRotate 20s linear infinite reverse;
+  transition: color 0.3s;
+}
+.cal-day.active {
+  color: #3b82f6;
+  text-shadow: 0 0 8px #3b82f6;
+}
+.cal-day:nth-child(1) { top: 4px;   left: 50%; transform: translateX(-50%); }
+.cal-day:nth-child(2) { top: 18px;  right: 8px; }
+.cal-day:nth-child(3) { top: 50px;  right: 0px; transform: translateY(-50%); }
+.cal-day:nth-child(4) { bottom: 8px; right: 16px; }
+.cal-day:nth-child(5) { bottom: 4px; left: 50%; transform: translateX(-50%); }
+.cal-day:nth-child(6) { bottom: 8px; left: 16px; }
+.cal-day:nth-child(7) { top: 50px;  left: 0px; transform: translateY(-50%); }
+
+.clock-wrapper::before {
+  content: '';
+  position: absolute;
+  width: 150px; height: 150px;
+  border-radius: 50%;
+  border: 1px dashed rgba(59,130,246,0.2);
+  animation: ringRotate 15s linear infinite reverse;
+}
+.clock-wrapper::after {
+  content: '';
+  position: absolute;
+  width: 8px; height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
+  top: 2px; left: 50%;
+  margin-left: -4px;
+  box-shadow: 0 0 10px #3b82f6, 0 0 20px rgba(59,130,246,0.5);
+  animation: ringRotate 15s linear infinite reverse;
+  transform-origin: 4px 73px;
+}
+
+.splash-title {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  animation: titleReveal 0.7s 0.4s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes titleReveal {
+  from { opacity:0; transform: translateY(30px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.splash-icon {
+  font-size: 48px;
+  filter: drop-shadow(0 0 20px rgba(59,130,246,0.8));
+  animation: iconPulse 2s ease-in-out infinite;
+}
+@keyframes iconPulse {
+  0%,100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(59,130,246,0.6)); }
+  50%      { transform: scale(1.1); filter: drop-shadow(0 0 30px rgba(59,130,246,1)); }
+}
+.title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.title-main {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 2px;
+  text-shadow:
+    0 0 30px rgba(59,130,246,0.8),
+    0 0 60px rgba(59,130,246,0.4);
+  white-space: nowrap;
+}
+.cursor-blink {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  color: #3b82f6;
+  animation: cursorBlink 0.7s step-end infinite;
+}
+@keyframes cursorBlink {
+  0%,100% { opacity:1; }
+  50%      { opacity:0; }
+}
+.title-sub {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(148,163,184,0.8);
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.version-badge {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-family: 'Orbitron', monospace;
+  box-shadow: 0 0 12px rgba(59,130,246,0.6);
+}
+
+.splash-progress-wrap {
+  width: min(380px, 90vw);
+  animation: titleReveal 0.7s 0.7s both;
+}
+.splash-progress-bar {
+  position: relative;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.splash-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6);
+  background-size: 200% 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  animation: shimmer 2s linear infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.progress-glow {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  left: 0; right: 0;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+  animation: progressGlow 1.5s ease infinite;
+}
+@keyframes progressGlow {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#progressText {
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  color: rgba(148,163,184,0.8);
+  font-weight: 500;
+}
+#progressPercent {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3b82f6;
+  text-shadow: 0 0 10px rgba(59,130,246,0.8);
+}
+
+.splash-dots {
+  display: flex;
+  gap: 10px;
+  animation: titleReveal 0.7s 1s both;
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(59,130,246,0.4);
+}
+.dot1 { animation: dotPulse 1.2s 0s ease-in-out infinite; }
+.dot2 { animation: dotPulse 1.2s 0.2s ease-in-out infinite; }
+.dot3 { animation: dotPulse 1.2s 0.4s ease-in-out infinite; }
+@keyframes dotPulse {
+  0%,100% { transform: scale(1); background: rgba(59,130,246,0.3); }
+  50%      { transform: scale(1.5); background: #3b82f6; box-shadow: 0 0 12px #3b82f6; }
+}
+
+.splash-footer {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  color: rgba(148,163,184,0.4);
+  font-weight: 500;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  animation: titleReveal 0.7s 1.2s both;
+}
+
+#splashScreen::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.6), transparent);
+  animation: scanLine 3s linear infinite;
+  pointer-events: none;
+}
+@keyframes scanLine {
+  from { top: -2px; }
+  to   { top: 100%; }
+}
+
+#mainApp {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+#mainApp.visible {
+  opacity: 1;
+}
+
+/* ===================================================
+   PWA INSTALL PROMPT
+   =================================================== */
+.install-prompt {
+    background: var(--success-color);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    display: none;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 4px 20px rgba(16,185,129,0.3);
+    animation: slideDown 0.5s ease;
+}
+@keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.install-prompt button {
+    background: white;
+    color: var(--success-color);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.2s;
+}
+.install-prompt button:hover {
+    transform: scale(1.05);
+}
+
+/* ===================================================
+   ORIGINAL SYSTEM STYLES
+   =================================================== */
+:root {
+    --bg-gradient-start: #0f172a;
+    --bg-gradient-end: #1e293b;
+    --card-bg: #ffffff;
+    --text-color: #1e293b;
+    --header-bg: #3b82f6;
+    --header-text: #fff;
+    --border-color: #e2e8f0;
+    --info-box-bg: #f0f9ff;
+    --accent-color: #8b5cf6;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+}
+body.dark-mode {
+    --bg-gradient-start: #020617;
+    --bg-gradient-end: #0f172a;
+    --card-bg: #1e293b;
+    --text-color: #e2e8f0;
+    --header-bg: #3b82f6;
+    --header-text: #fff;
+    --border-color: #334155;
+    --info-box-bg: #1e3a5f;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Outfit', sans-serif;
+    background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    min-height:100vh;
+    line-height:1.6;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.container { max-width:1600px; margin:auto; padding:40px 20px; }
+.header-controls {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:40px; flex-wrap:wrap; gap:20px;
+    padding:30px;
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(10px);
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,0.1);
+}
+h1 { color:#fff; margin:0; font-size:clamp(1.5rem, 5vw, 2.5rem); font-weight:800; letter-spacing:-1px; text-shadow:0 2px 20px rgba(0,0,0,0.3); }
+.sheets-link { background:var(--card-bg); padding:12px 24px; border-radius:30px; text-decoration:none; color:var(--text-color); font-weight:600; display:flex; align-items:center; gap:10px; transition:all 0.3s; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+.sheets-link:hover { transform:translateY(-3px); box-shadow:0 6px 25px rgba(0,0,0,0.2); }
+.sync-badge { background:var(--card-bg); padding:12px 24px; border-radius:30px; font-size:14px; display:flex; align-items:center; gap:10px; font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+.sync-indicator { width:12px; height:12px; border-radius:50%; background:#10b981; animation:pulse 2s infinite; box-shadow:0 0 10px currentColor; }
+.sync-indicator.syncing{background:#3b82f6;}
+.sync-indicator.error{background:#ef4444;}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.6;transform:scale(1.2);} }
+.theme-toggle { background:var(--card-bg); border:none; padding:12px 24px; border-radius:30px; cursor:pointer; color:var(--text-color); font-weight:600; transition:all 0.3s; box-shadow:0 4px 15px rgba(0,0,0,0.1); font-family:'Outfit',sans-serif; }
+.theme-toggle:hover { transform:translateY(-3px); box-shadow:0 6px 25px rgba(0,0,0,0.2); }
+.card { background:var(--card-bg); border-radius:24px; padding:35px; margin-bottom:30px; box-shadow:0 10px 40px rgba(0,0,0,.15); border:1px solid var(--border-color); transition:all 0.3s ease; }
+.card:hover { transform:translateY(-2px); box-shadow:0 15px 50px rgba(0,0,0,.2); }
+.card h2 { margin-top:0; color:var(--header-bg); font-size:1.8rem; font-weight:700; margin-bottom:25px; letter-spacing:-0.5px; }
+body.dark-mode .card h2{color:#60a5fa;}
+.filtros-avancados { background:var(--info-box-bg); padding:25px; border-radius:16px; margin-bottom:25px; border:1px solid var(--border-color); }
+.filtro-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; margin-bottom:20px; }
+.filtro-actions { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.btn-filtro { padding:12px 24px; border-radius:12px; border:none; cursor:pointer; background:var(--header-bg); color:var(--header-text); font-weight:600; transition:all 0.2s; font-family:'Outfit',sans-serif; font-size:14px; touch-action: manipulation; }
+.btn-filtro:hover { opacity:0.9; transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.2); }
+.btn-limpar{background:#f59e0b;}
+.widgets-container { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:25px; margin-bottom:30px; }
+.widget { background:var(--card-bg); border-radius:20px; padding:25px; box-shadow:0 10px 40px rgba(0,0,0,.15); border:1px solid var(--border-color); transition:all 0.3s ease; }
+.widget:hover { transform:translateY(-3px); box-shadow:0 15px 50px rgba(0,0,0,.2); }
+.widget h3 { margin:0 0 20px 0; color:var(--header-bg); font-size:18px; border-bottom:2px solid var(--border-color); padding-bottom:12px; font-weight:700; }
+body.dark-mode .widget h3{color:#60a5fa;}
+.mini-calendario { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+.mini-dia { padding:8px 4px; text-align:center; font-size:11px; border-radius:6px; min-height:32px; display:flex; align-items:center; justify-content:center; font-weight:600; transition:all 0.2s; }
+.mini-dia:hover:not(.mini-header){transform:scale(1.1);z-index:10;}
+.mini-header { font-weight:700; background:var(--header-bg); color:var(--header-text); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
+.mini-servico-normal{background:#10b981;color:#fff;font-weight:700;}
+.mini-servico-extra{background:#3b82f6;color:#fff;font-weight:700;}
+.mini-servico-falta{background:#f59e0b;color:#fff;font-weight:700;}
+.mini-servico-ferias{background:#8b5cf6;color:#fff;font-weight:700;}
+.mini-folga{background:#f1f5f9;color:#64748b;}
+body.dark-mode .mini-folga{background:#334155;color:#94a3b8;}
+.mini-hoje{border:2px solid #ef4444;font-weight:700;box-shadow:0 0 12px rgba(239,68,68,0.5);}
+.print-header{display:none;}
+.qr-code-container{text-align:center;margin:30px 0;}
+#qrcode{display:inline-block;padding:20px;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+@media print {
+    .no-print{display:none!important;}
+    body{background:white!important;color:black!important;margin:0;padding:0;}
+    .container{max-width:100%;padding:10mm;}
+    .card{box-shadow:none!important;page-break-inside:avoid;border:1px solid #ccc;margin-bottom:10mm;}
+    .print-header{display:block;text-align:center;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #3b82f6;}
+    .print-header h1{color:#3b82f6;margin:0;font-size:24px;}
+    .print-header p{margin:5px 0;font-size:12px;color:#666;}
+    .qr-code-container{page-break-before:avoid;}
+    table{font-size:10px;}
+    th,td{padding:4px;}
+}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;}
+input,select,button,textarea{padding:14px 18px;border-radius:12px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-color);font-family:'Outfit',sans-serif;font-size:14px;transition:all 0.2s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--header-bg);box-shadow:0 0 0 3px rgba(59,130,246,0.1);}
+button{background:var(--header-bg);color:var(--header-text);cursor:pointer;border:none;transition:all 0.2s;font-weight:600; touch-action: manipulation;}
+button:hover{opacity:0.9;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.2);}
+.btn-edit{background:#10b981;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-right:8px;font-weight:600;font-size:13px;transition:all 0.2s;}
+.btn-edit:hover{background:#059669;transform:translateY(-1px);}
+.btn-del{background:#ef4444;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;}
+.btn-del:hover{background:#dc2626;transform:translateY(-1px);}
+table{width:100%;border-collapse:collapse;margin-top:20px;border-radius:12px;overflow:hidden;}
+th,td{padding:14px 12px;border:1px solid var(--border-color);text-align:center;font-size:14px;}
+th{background:var(--header-bg);color:var(--header-text);font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:0.5px;}
+tbody tr{transition:all 0.2s;}
+tbody tr:hover{background:var(--info-box-bg);transform:scale(1.01);}
+.oculto{display:none;}
+.info-box{background:var(--info-box-bg);padding:20px;border-radius:12px;margin-bottom:20px;font-size:14px;border:1px solid var(--border-color);line-height:1.8;}
+.calendario-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:20px;}
+.dia-calendario{padding:16px 12px;border:1px solid var(--border-color);border-radius:12px;text-align:center;font-size:14px;cursor:pointer;transition:all 0.2s;min-height:60px;display:flex;flex-direction:column;justify-content:center;font-weight:600;position:relative;overflow:hidden; touch-action: manipulation;}
+.dia-calendario::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,0.1));opacity:0;transition:opacity 0.3s;}
+.dia-calendario:hover::before{opacity:1;}
+.dia-calendario:hover:not(.dia-header){transform:scale(1.08);box-shadow:0 8px 25px rgba(0,0,0,0.2);z-index:10;}
+.dia-servico-normal{background:#10b981;color:#fff;font-weight:700;}
+.dia-servico-extra{background:#3b82f6;color:#fff;font-weight:700;}
+.dia-servico-falta{background:#f59e0b;color:#fff;font-weight:700;}
+.dia-servico-ferias{background:#8b5cf6;color:#fff;font-weight:700;}
+.dia-folga{background:#f1f5f9;color:#64748b;}
+body.dark-mode .dia-folga{background:#334155;color:#94a3b8;}
+.dia-header{background:var(--header-bg);color:var(--header-text);font-weight:700;text-transform:uppercase;font-size:12px;letter-spacing:1px;}
+.dia-passado{opacity:0.5;}
+.mes-navegacao{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px;gap:15px;flex-wrap:wrap;}
+.mes-navegacao button{padding:12px 24px;font-weight:600;}
+.mes-navegacao h3{font-size:1.5rem;font-weight:700;color:var(--text-color);}
+.view-controls{display:flex;gap:12px;margin-bottom:25px;flex-wrap:wrap;}
+.view-controls button,.view-controls select{padding:12px 24px;flex:1;min-width:140px;font-weight:600;}
+.view-controls button.active{background:#10b981;box-shadow:0 4px 15px rgba(16,185,129,0.3);}
+.legenda{margin-top:25px;display:flex;gap:25px;justify-content:center;font-size:14px;flex-wrap:wrap;padding:20px;background:var(--info-box-bg);border-radius:12px;}
+.legenda-item{display:flex;align-items:center;gap:10px;font-weight:600;}
+.legenda-cor{display:inline-block;width:24px;height:24px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-top:25px;}
+.stat-card{background:var(--info-box-bg);padding:30px;border-radius:16px;text-align:center;border:1px solid var(--border-color);transition:all 0.3s;}
+.stat-card:hover{transform:translateY(-5px);box-shadow:0 10px 30px rgba(0,0,0,0.15);}
+.stat-number{font-size:48px;font-weight:800;color:var(--header-bg);margin:15px 0;font-family:'Space Mono',monospace;}
+body.dark-mode .stat-number{color:#60a5fa;}
+.stat-label{font-size:14px;color:var(--text-color);opacity:0.8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+footer{text-align:center;color:#fff;margin-top:50px;font-size:14px;opacity:0.7;font-weight:500;}
+@media (max-width:768px){
+    .calendario-mini{gap:4px;}
+    .dia-calendario{padding:8px 4px;font-size:12px;min-height:45px;}
+    .widgets-container{grid-template-columns:1fr;}
+    h1{font-size:1.8rem;}
+    .header-controls{padding:20px;}
+    .container{padding:20px 15px;}
+    .card{padding:20px;}
+    .filtro-grid{grid-template-columns:1fr;}
+    table{font-size:12px;}
+    th,td{padding:8px;}
+}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+.card{animation:fadeInUp 0.6s ease-out;}
+.widget{animation:fadeInUp 0.6s ease-out;}
+.toggle-modo{display:flex;gap:0;border-radius:12px;overflow:hidden;border:2px solid var(--header-bg);margin-bottom:15px;width:fit-content;}
+.toggle-modo button{padding:10px 22px;border:none;border-radius:0;background:transparent;color:var(--header-bg);font-weight:700;cursor:pointer;transition:all 0.2s;font-size:14px;}
+.toggle-modo button.ativo{background:var(--header-bg);color:#fff;}
+.toggle-modo button:hover:not(.ativo){background:rgba(59,130,246,0.1);}
+.badge-dias{display:inline-block;background:#10b981;color:#fff;border-radius:8px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:8px;}
+.badge-horas{display:inline-block;background:#3b82f6;color:#fff;border-radius:8px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:8px;}
+.info-modo{background:var(--info-box-bg);border-radius:10px;padding:10px 14px;font-size:13px;margin-top:10px;border:1px solid var(--border-color);line-height:1.7;}
+.dia-semana-card{background:var(--info-box-bg);border-radius:12px;padding:16px;border:1px solid var(--border-color);}
+.dia-semana-card h5{color:var(--header-bg);font-size:14px;margin-bottom:10px;text-align:center;}
+.semana-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;}
+@media (max-width:768px){.semana-grid{grid-template-columns:1fr;}.toggle-modo{width:100%;}.toggle-modo button{flex:1;}}
+
+/* PWA Notification */
+.pwa-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--card-bg);
+    padding: 15px 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    z-index: 10000;
+    display: none;
+    animation: slideIn 0.3s ease;
+    max-width: 300px;
+}
+.pwa-notification.show {
+    display: block;
+}
+@keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SPLASH SCREEN
+     ============================================================ -->
+<div id="splashScreen">
+  <canvas id="splashCanvas"></canvas>
+  <div class="splash-content">
+
+    <div class="clock-wrapper">
+      <div class="clock-face">
+        <div class="clock-center"></div>
+        <div class="clock-hand hour-hand"   id="hourHand"></div>
+        <div class="clock-hand minute-hand" id="minuteHand"></div>
+        <div class="clock-hand second-hand" id="secondHand"></div>
+        <div class="clock-tick" style="--i:0"></div>
+        <div class="clock-tick" style="--i:1"></div>
+        <div class="clock-tick" style="--i:2"></div>
+        <div class="clock-tick" style="--i:3"></div>
+        <div class="clock-tick" style="--i:4"></div>
+        <div class="clock-tick" style="--i:5"></div>
+        <div class="clock-tick" style="--i:6"></div>
+        <div class="clock-tick" style="--i:7"></div>
+        <div class="clock-tick" style="--i:8"></div>
+        <div class="clock-tick" style="--i:9"></div>
+        <div class="clock-tick" style="--i:10"></div>
+        <div class="clock-tick" style="--i:11"></div>
+      </div>
+      <div class="calendar-ring">
+        <span class="cal-day active">S</span>
+        <span class="cal-day">T</span>
+        <span class="cal-day active">Q</span>
+        <span class="cal-day">Q</span>
+        <span class="cal-day active">S</span>
+        <span class="cal-day">S</span>
+        <span class="cal-day">D</span>
+      </div>
+    </div>
+
+    <div class="splash-title">
+      <span class="splash-icon">📅</span>
+      <div class="title-text">
+        <div>
+          <span class="title-main" id="typewriterText"></span><span class="cursor-blink" id="cursorBlink">|</span>
+        </div>
+        <div class="title-sub">Sistema de Escala <span class="version-badge">PWA v4.0</span></div>
+      </div>
+    </div>
+
+    <div class="splash-progress-wrap">
+      <div class="splash-progress-bar">
+        <div class="splash-progress-fill" id="progressFill"></div>
+        <div class="progress-glow"></div>
+      </div>
+      <div class="progress-info">
+        <span id="progressText">Iniciando sistema...</span>
+        <span id="progressPercent">0%</span>
+      </div>
+    </div>
+
+    <div class="splash-dots">
+      <span class="dot dot1"></span>
+      <span class="dot dot2"></span>
+      <span class="dot dot3"></span>
+    </div>
+  </div>
+
+  <div class="splash-footer">Google Sheets &bull; Sincronização em Tempo Real &bull; PWA</div>
+</div>
+
+<!-- PWA Install Prompt -->
+<div id="installPrompt" class="install-prompt">
+    <span>📱 Instale este app para acesso rápido offline!</span>
+    <button onclick="instalarApp()">Instalar</button>
+    <button onclick="document.getElementById('installPrompt').style.display='none'" style="background:transparent;color:white;">Depois</button>
+</div>
+
+<!-- PWA Notification -->
+<div id="pwaNotification" class="pwa-notification"></div>
+
+<!-- ============================================================
+     MAIN APPLICATION
+     ============================================================ -->
+<div id="mainApp">
+<div class="container">
+<div class="header-controls no-print">
+<h1>📅 Sistema de Escala v4.0</h1>
+<div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+    <a href="#" id="sheetsLinkHeader" class="sheets-link" target="_blank" style="display:none;">📊 Abrir Google Sheets</a>
+    <div class="sync-badge">
+        <div class="sync-indicator" id="syncIndicator"></div>
+        <span id="syncStatus">Sincronizado ☁️</span>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Tema</button>
+</div>
+</div>
+
+<div class="card no-print">
+<div class="info-box" style="text-align:center;">
+    <span id="apiStatus">☁️ <strong>Conectado ao Google Sheets</strong> - Sincronização automática a cada 5 segundos</span>
+</div>
+</div>
+
+<div class="widgets-container no-print">
+    <div class="widget"><h3>📅 Mês Atual</h3><div id="widgetMesAtual"></div></div>
+    <div class="widget"><h3>📊 Resumo Rápido</h3><div id="widgetResumo" style="padding:10px;"><div style="margin:5px 0;"><strong>Este mês:</strong></div><div id="resumoMes" style="font-size:13px;line-height:2;"></div></div></div>
+    <div class="widget"><h3>🔔 Próximos Serviços</h3><div id="widgetProximos" style="font-size:13px;line-height:2;padding:10px;"></div></div>
+</div>
+
+<div class="card no-print">
+<h2>🔍 Filtros Avançados</h2>
+<div class="filtros-avancados">
+    <div class="filtro-grid">
+        <input type="text" id="filtroNome" placeholder="🔍 Buscar por nome">
+        <input type="text" id="filtroFuncao" placeholder="🔍 Buscar por função">
+        <select id="filtroTipoServico">
+            <option value="">Todos os tipos</option>
+            <option value="normal">🟢 Serviço Normal</option>
+            <option value="extra">🔵 Serviço Extra</option>
+            <option value="falta">🟠 Falta/Atestado</option>
+            <option value="ferias">🟣 Férias</option>
+        </select>
+        <input type="date" id="filtroPeriodoInicio" placeholder="Período início">
+        <input type="date" id="filtroPeriodoFim" placeholder="Período fim">
+    </div>
+    <div class="filtro-actions">
+        <button class="btn-filtro" onclick="aplicarFiltros()">🔍 Aplicar</button>
+        <button class="btn-filtro btn-limpar" onclick="limparFiltros()">🗑️ Limpar</button>
+        <button class="btn-filtro" onclick="exportarFiltrados()">📄 Exportar</button>
+        <span id="resultadoFiltro" style="padding:8px;color:var(--text-color);font-weight:bold;"></span>
+    </div>
+</div>
+</div>
+
+<div class="card">
+<h2>📊 Estatísticas</h2>
+<div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Serviços Normais</div><div class="stat-number" id="statNormais">0</div></div>
+    <div class="stat-card"><div class="stat-label">Serviços Extras</div><div class="stat-number" id="statExtras">0</div></div>
+    <div class="stat-card"><div class="stat-label">Faltas/Atestados</div><div class="stat-number" id="statFaltas">0</div></div>
+    <div class="stat-card"><div class="stat-label">Dispensa Médica</div><div class="stat-number" id="statDispensa">0</div><small style="font-size:11px;opacity:0.7;">(Acima de 8 dias)</small></div>
+    <div class="stat-card"><div class="stat-label">Férias</div><div class="stat-number" id="statFerias">0</div></div>
+    <div class="stat-card"><div class="stat-label">Avulso/Permuta</div><div class="stat-number" id="statAvulso">0</div></div>
+    <div class="stat-card"><div class="stat-label">Total de Folgas</div><div class="stat-number" id="statFolgas">0</div></div>
+    <div class="stat-card"><div class="stat-label">Dias Trabalhados</div><div class="stat-number" id="statTotal">0</div></div>
+</div>
+</div>
+
+<div class="card no-print">
+<h2>🔄 Escala Recorrente</h2>
+<div class="info-box"><strong>💡 Dica:</strong> Configure escalas que se repetem automaticamente. Agora com suporte para <strong>férias</strong>!</div>
+<form id="formEscalaPlantonista">
+    <input type="text" id="nomePlantonista" placeholder="Nome" required>
+    <input type="text" id="funcaoPlantonista" placeholder="Função" required>
+    <select id="tipoServico" required onchange="ajustarCamposTipoServico()">
+        <option value="">Tipo de Serviço</option>
+        <option value="normal">🟢 Serviço Normal</option>
+        <option value="extra">🔵 Serviço Extra</option>
+        <option value="falta">🟠 Falta/Atestado</option>
+        <option value="ferias">🟣 Férias</option>
+    </select>
+    <div id="camposExtraFalta" class="oculto" style="grid-column:1/-1;">
+        <div style="background:var(--info-box-bg);padding:20px;border-radius:12px;margin-top:15px;">
+            <p style="margin:0 0 15px 0;font-weight:bold;">⚠️ Configuração de Serviço Único</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;">
+                <input type="date" id="dataUnicaServico" placeholder="Data inicial">
+                <input type="number" id="qtdDiasServico" placeholder="Quantidade de dias" min="1" max="365">
+            </div>
+            <small style="display:block;margin-top:10px;opacity:0.8;line-height:1.6;">O sistema marcará os dias consecutivos a partir da data selecionada.<br><strong>Mais de 8 dias de falta = Dispensa Médica</strong></small>
+        </div>
+    </div>
+    <div id="camposRecorrentes" style="grid-column:1/-1;display:contents;">
+    <select id="tipoEscala" onchange="ajustarCamposEscala()" required>
+        <option value="">Tipo de Escala</option>
+        <option value="12x24-12x72">12x24 + 12x72</option>
+        <option value="12x24-12x48">12x24 + 12x48</option>
+        <option value="12x24-12x96">12x24 + 12x96</option>
+        <option value="diario-8h">Diário 8h (Comercial)</option>
+        <option value="24x48">24x48</option>
+        <option value="24x72">24x72</option>
+        <option value="personalizada">Personalizada</option>
+    </select>
+    <div id="camposDiaPosterior" class="oculto" style="grid-column:1/-1;">
+        <div style="background:var(--info-box-bg);padding:15px;border-radius:12px;margin-top:15px;">
+            <label style="display:flex;align-items:center;gap:12px;cursor:pointer;"><input type="checkbox" id="marcarDiaPosterior"><span style="font-weight:600;">✅ Marcar 2 dias consecutivos</span></label>
+        </div>
+    </div>
+    <div id="camposPersonalizada" class="oculto" style="grid-column:1/-1;">
+        <div style="background:var(--info-box-bg);padding:20px;border-radius:12px;margin-top:15px;">
+            <p style="margin:0 0 12px 0;font-weight:700;font-size:15px;">⚙️ Modo de Escala Personalizada</p>
+            <div class="toggle-modo">
+                <button type="button" id="btnModoHoras" class="ativo" onclick="selecionarModo('horas')">⏱️ Por Horas</button>
+                <button type="button" id="btnModoDias" onclick="selecionarModo('dias')">📅 Por Dias</button>
+            </div>
+            <div id="modoHoras">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-bottom:12px;">
+                    <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">⏱️ Horas de Trabalho <span class="badge-horas">ex: 12</span></label><input type="number" id="horasTrabalho" placeholder="Ex: 12, 24..." min="1" max="24"></div>
+                    <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">😴 Horas de Folga <span class="badge-horas">ex: 48</span></label><input type="number" id="horasFolga" placeholder="Ex: 24, 48, 72..." min="1"></div>
+                </div>
+                <div class="info-modo">💡 <strong>Exemplo:</strong> 12h trabalho + 48h folga = escala 12x48</div>
+            </div>
+            <div id="modoDias" class="oculto">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin-bottom:12px;">
+                    <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">📅 Dias Trabalhando <span class="badge-dias">ex: 5</span></label><input type="number" id="diasTrabalho" placeholder="Ex: 5, 3, 2..." min="1" max="30"></div>
+                    <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">🏖️ Dias de Folga <span class="badge-dias">ex: 2</span></label><input type="number" id="diasFolga" placeholder="Ex: 2, 1, 3..." min="1" max="30"></div>
+                </div>
+                <div class="info-modo">💡 <strong>Exemplo:</strong> 5 dias trabalhando + 2 dias folga = escala 5x2</div>
+            </div>
+            <div style="margin-top:15px;"><label style="display:flex;align-items:center;gap:12px;cursor:pointer;"><input type="checkbox" id="incluirFinaisSemana"><span style="font-weight:600;">Incluir finais de semana</span></label></div>
+        </div>
+    </div>
+    <input type="date" id="dataInicioPlantonista" required>
+    <input type="month" id="mesFimPlantonista" required>
+    </div>
+    <select id="turnoPlantonista">
+        <option value="Diurno">Diurno</option><option value="Noturno">Noturno</option>
+        <option value="Manhã">Manhã</option><option value="Tarde">Tarde</option>
+        <option value="Noite">Noite</option><option value="24h">24h</option>
+    </select>
+    <textarea id="motivoServico" placeholder="Observação (opcional)" style="grid-column:1/-1;resize:vertical;min-height:80px;"></textarea>
+    <button type="submit" style="grid-column:1/-1;">✨ Gerar Escala</button>
+</form>
+<h3 style="margin-top:35px;margin-bottom:20px;font-size:1.3rem;">📋 Escalas Cadastradas</h3>
+<div style="overflow-x:auto;">
+<table>
+<thead><tr><th>Nome</th><th>Função</th><th>Tipo</th><th>Escala</th><th>Início</th><th>Até</th><th>Ações</th></tr></thead>
+<tbody id="listaEscalasPlantonistas"></tbody>
+</table>
+</div>
+</div>
+
+<div class="card">
+<div class="print-header"><h1>📅 Escala de Serviço</h1><p id="printPeriodo"></p><p>Gerado em: <span id="printData"></span></p></div>
+<h2>📆 Calendário</h2>
+<div class="info-box no-print"><strong>🔍 Navegação:</strong> Use os botões para navegar entre meses/anos ou busque um período específico abaixo.</div>
+<div class="view-controls no-print" style="border-bottom:1px solid var(--border-color);padding-bottom:20px;margin-bottom:20px;">
+    <input type="date" id="dataInicioBusca" placeholder="Data início" style="flex:1;min-width:160px;">
+    <input type="date" id="dataFimBusca" placeholder="Data fim" style="flex:1;min-width:160px;">
+    <button onclick="buscarPeriodo()">🔍 Buscar</button>
+    <button onclick="voltarHoje()">📅 Hoje</button>
+</div>
+<div class="view-controls no-print">
+    <button id="btnMensal" class="active" onclick="mudarVisualizacao('mensal')">📅 Mensal</button>
+    <button id="btnSemanal" onclick="mudarVisualizacao('semanal')">📋 Semanal</button>
+    <button onclick="imprimirMes()">🖨️ Imprimir</button>
+    <button onclick="exportarPDF()">📄 PDF</button>
+</div>
+<div id="viewMensal">
+    <div class="mes-navegacao">
+        <button onclick="navegarMes(-1)">◀ Anterior</button>
+        <h3 id="mesAtual"></h3>
+        <button onclick="navegarMes(1)">Próximo ▶</button>
+    </div>
+    <div id="calendario" class="calendario-mini"></div>
+</div>
+<div id="viewSemanal" class="oculto"></div>
+<div class="legenda">
+    <div class="legenda-item"><span class="legenda-cor" style="background:#10b981;"></span>Normal</div>
+    <div class="legenda-item"><span class="legenda-cor" style="background:#3b82f6;"></span>Extra</div>
+    <div class="legenda-item"><span class="legenda-cor" style="background:#f59e0b;"></span>Falta/Atestado</div>
+    <div class="legenda-item"><span class="legenda-cor" style="background:#8b5cf6;"></span>Férias</div>
+    <div class="legenda-item"><span class="legenda-cor" style="background:#f1f5f9;border:1px solid #ccc;"></span>Folga</div>
+</div>
+<div class="qr-code-container" style="display:none;" id="qrContainer">
+    <p style="font-weight:600;margin-bottom:15px;">📱 Acesse pelo celular:</p>
+    <div id="qrcode"></div>
+    <p id="qrLink" style="font-size:11px;margin-top:15px;opacity:0.7;"></p>
+</div>
+</div>
+
+<div class="card no-print">
+<h2>➕ Escala Avulsa</h2>
+<form id="formEscala">
+<input type="text" id="nome" placeholder="Nome" required>
+<input type="text" id="funcao" placeholder="Função" required>
+<input type="date" id="data" required>
+<select id="turno">
+    <option value="Diurno">Diurno</option><option value="Noturno">Noturno</option>
+    <option value="Manhã">Manhã</option><option value="Tarde">Tarde</option>
+    <option value="Noite">Noite</option><option value="24h">24h</option>
+</select>
+<select id="tipoServicoAvulso" required>
+    <option value="normal">🟢 Normal</option>
+    <option value="extra">🔵 Extra</option>
+    <option value="falta">🟠 Falta/Atestado</option>
+    <option value="ferias">🟣 Férias</option>
+</select>
+<textarea id="motivoAvulso" placeholder="Observação (opcional)" style="grid-column:1/-1;resize:vertical;min-height:80px;"></textarea>
+<button type="submit" style="grid-column:1/-1;">✨ Adicionar</button>
+</form>
+<h3 style="margin-top:35px;margin-bottom:20px;font-size:1.3rem;">📋 Escalas Avulsas</h3>
+<div style="overflow-x:auto;">
+<table>
+<thead><tr><th>Nome</th><th>Função</th><th>Data</th><th>Turno</th><th>Tipo</th><th>Ações</th></tr></thead>
+<tbody id="listaEscala"></tbody>
+</table>
+</div>
+</div>
+
+<footer class="no-print">Sistema de Escala PWA v4.0 • Google Sheets • Sincronização em Tempo Real • Modo Offline</footer>
+</div><!-- end .container -->
+</div><!-- end #mainApp -->
+
+<script src="app.js"></script>
+</body>
+</html>
